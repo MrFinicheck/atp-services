@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -23,17 +21,6 @@ var (
 
 type Store struct {
 	db *leveldb.DB
-}
-
-func Open(dir string) (*Store, error) {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return nil, err
-	}
-	db, err := leveldb.OpenFile(filepath.Join(dir, "data"), nil)
-	if err != nil {
-		return nil, err
-	}
-	return &Store{db: db}, nil
 }
 
 func (s *Store) Close() error {

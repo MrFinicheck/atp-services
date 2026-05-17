@@ -1,8 +1,6 @@
 package app
 
 import (
-	"os"
-	"path/filepath"
 	"sync"
 
 	"atp-services/internal/models"
@@ -12,6 +10,8 @@ import (
 
 type Application struct {
 	mu      sync.RWMutex
+	once    sync.Once
+	initErr error
 	store   *store.Store
 	auth    *services.AuthService
 	orders  *services.OrderService
@@ -22,29 +22,56 @@ type Application struct {
 }
 
 func New(dataDir string) (*Application, error) {
-	if dataDir == "" {
-		home, _ := os.UserConfigDir()
-		dataDir = filepath.Join(home, "atp-services")
-	}
-	st, err := store.Open(dataDir)
-	if err != nil {
+	a := &Application{dataDir: resolveDataDir(dataDir)}
+	if err := a.init(); err != nil {
 		return nil, err
 	}
-	auth := services.NewAuthService(st)
-	tariffs := services.NewTariffService(st)
-	orders := services.NewOrderService(st, tariffs)
-	waybill := services.NewWaybillService(st)
-	report := services.NewReportService(st)
-	a := &Application{
-		store: st, auth: auth, orders: orders, tariffs: tariffs,
-		waybill: waybill, report: report, dataDir: dataDir,
-	}
-	_ = services.SeedDemoData(st, auth)
 	return a, nil
 }
 
+// NewLazy defers database open until the first API call (used by Wails startup).
+func NewLazy(dataDir string) *Application {
+	return &Application{dataDir: resolveDataDir(dataDir)}
+}
+
+func (a *Application) init() error {
+	a.once.Do(func() {
+		st, err := store.Open(a.dataDir)
+		if err != nil {
+			a.initErr = err
+			return
+		}
+		auth := services.NewAuthService(st)
+		tariffs := services.NewTariffService(st)
+		a.store = st
+		a.auth = auth
+		a.tariffs = tariffs
+		a.orders = services.NewOrderService(st, tariffs)
+		a.waybill = services.NewWaybillService(st)
+		a.report = services.NewReportService(st)
+		_ = services.SeedDemoData(st, auth)
+	})
+	return a.initErr
+}
+
+func (a *Application) ensure() error {
+	return a.init()
+}
+
+// EnsureReady opens the database if it is not open yet (for Wails lazy startup).
+func (a *Application) EnsureReady() error {
+	return a.ensure()
+}
+
 func (a *Application) Close() error {
-	return a.store.Close()
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.store == nil {
+		return nil
+	}
+	err := a.store.Close()
+	a.store = nil
+	return err
 }
 
 func (a *Application) DataDir() string {
@@ -52,14 +79,23 @@ func (a *Application) DataDir() string {
 }
 
 func (a *Application) requireUser(token string) (*models.User, error) {
+	if err := a.ensure(); err != nil {
+		return nil, err
+	}
 	return a.auth.Validate(token)
 }
 
 func (a *Application) Login(req models.LoginRequest) (*models.LoginResponse, error) {
+	if err := a.ensure(); err != nil {
+		return nil, err
+	}
 	return a.auth.Login(req)
 }
 
 func (a *Application) Logout(token string) error {
+	if err := a.ensure(); err != nil {
+		return err
+	}
 	return a.auth.Logout(token)
 }
 

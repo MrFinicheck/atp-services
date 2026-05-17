@@ -18,11 +18,8 @@ func NewApp() *App {
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
-	core, err := app.New("")
-	if err != nil {
-		panic(err)
-	}
-	a.core = core
+	// Lazy open: wails dev may restart before LevelDB lock is released.
+	a.core = app.NewLazy("")
 }
 
 func (a *App) shutdown(ctx context.Context) {
@@ -35,10 +32,14 @@ func (a *App) GetDataDir() string {
 	if a.core == nil {
 		return ""
 	}
+	_ = a.core.EnsureReady()
 	return a.core.DataDir()
 }
 
 func (a *App) Login(req models.LoginRequest) (*models.LoginResponse, error) {
+	if err := a.core.EnsureReady(); err != nil {
+		return nil, err
+	}
 	return a.core.Login(req)
 }
 
