@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -20,11 +21,19 @@ var (
 )
 
 type Store struct {
-	db *leveldb.DB
+	db      *leveldb.DB
+	dirLock *os.File
 }
 
 func (s *Store) Close() error {
-	return s.db.Close()
+	var err error
+	if s.db != nil {
+		err = s.db.Close()
+		s.db = nil
+	}
+	releaseDirLock(s.dirLock)
+	s.dirLock = nil
+	return err
 }
 
 func (s *Store) put(prefix, id string, v any) error {

@@ -49,7 +49,14 @@ cd .. && go run ./cmd/web -addr :8080
 
 Данные LevelDB по умолчанию хранятся в `./data` внутри каталога проекта (удобно для `wails dev`). Переопределение: переменная `ATP_DATA_DIR` или флаг `-data` для веб-сервера.
 
-Если при запуске видите ошибку блокировки БД, завершите другие экземпляры (`go run ./cmd/web` или предыдущий `wails dev`).
+Если видите `resource temporarily unavailable` или «каталог данных занят»:
+
+```bash
+pkill -f "atp-services" 2>/dev/null
+pkill -f "cmd/web" 2>/dev/null
+rm -f data/.atp.lock data/data/LOCK
+wails dev -tags=webkit2_41
+```
 
 ## Структура проекта
 

@@ -10,9 +10,7 @@ import (
 
 // Container — composition root (DIP): собирает зависимости по интерфейсам.
 type Container struct {
-	mu      sync.RWMutex
-	once    sync.Once
-	initErr error
+	mu      sync.Mutex
 	dataDir string
 
 	uow     ports.UnitOfWork
@@ -28,33 +26,43 @@ func NewContainer(dataDir string) *Container {
 }
 
 func (c *Container) Init() error {
-	c.once.Do(func() {
-		st, err := store.Open(c.dataDir)
-		if err != nil {
-			c.initErr = err
-			return
-		}
-		c.uow = st
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-		c.Auth = services.NewAuthService(st)
-		c.Tariffs = services.NewTariffService(st)
-		c.Orders = services.NewOrderService(st, c.Tariffs)
-		c.Waybill = services.NewWaybillService(st)
-		c.Report = services.NewReportService(st)
+	if c.uow != nil {
+		return nil
+	}
 
-		_ = services.NewSeeder(st, c.Auth).Seed()
-	})
-	return c.initErr
+	st, err := store.Open(c.dataDir)
+	if err != nil {
+		return err
+	}
+
+	c.uow = st
+	c.Auth = services.NewAuthService(st)
+	c.Tariffs = services.NewTariffService(st)
+	c.Orders = services.NewOrderService(st, c.Tariffs)
+	c.Waybill = services.NewWaybillService(st)
+	c.Report = services.NewReportService(st)
+
+	_ = services.NewSeeder(st, c.Auth).Seed()
+	return nil
 }
 
 func (c *Container) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	if c.uow == nil {
 		return nil
 	}
 	err := c.uow.Close()
 	c.uow = nil
+	c.Auth = nil
+	c.Tariffs = nil
+	c.Orders = nil
+	c.Waybill = nil
+	c.Report = nil
 	return err
 }
 
