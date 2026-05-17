@@ -51,7 +51,10 @@ async function httpCall<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   async login(login: string, password: string) {
     if (isWails()) {
-      return wailsCall<{ token: string; user: User }>('Login', { login, password });
+      const { Login } = await import('../../wailsjs/go/main/App');
+      const { LoginRequest } = await import('../../wailsjs/go/models');
+      const res = await Login(new LoginRequest({ login, password }));
+      return { token: res.token, user: res.user as User };
     }
     return httpCall<{ token: string; user: User }>('/api/login', {
       method: 'POST',

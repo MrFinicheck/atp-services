@@ -8,32 +8,19 @@ import (
 )
 
 func SeedDemoData(s *store.Store, auth *AuthService) error {
-	ok, err := s.IsSeeded()
-	if err != nil || ok {
+	if err := ensureDemoUsers(s, auth); err != nil {
 		return err
 	}
-
-	users := []struct {
-		login, pass, first, last, phone string
-		role                            models.Role
-	}{
-		{"admin", "admin123", "Иван", "Петров", "+79001112233", models.RoleAdmin},
-		{"dispatcher", "disp123", "Мария", "Сидорова", "+79002223344", models.RoleDispatcher},
-		{"driver1", "drv123", "Алексей", "Козлов", "+79003334455", models.RoleDriver},
-		{"driver2", "drv123", "Дмитрий", "Новиков", "+79004445566", models.RoleDriver},
+	ok, err := s.IsSeeded()
+	if err != nil || ok {
+		return nil
 	}
+
 	var driverIDs []string
-	for _, u := range users {
-		hash, _ := auth.HashPassword(u.pass)
-		user := &models.User{
-			Login: u.login, PasswordHash: hash, Role: u.role,
-			FirstName: u.first, LastName: u.last, Phone: u.phone, Active: true,
-		}
-		if err := s.SaveUser(user); err != nil {
-			return err
-		}
-		if u.role == models.RoleDriver {
-			driverIDs = append(driverIDs, user.ID)
+	allUsers, _ := s.ListUsers()
+	for _, u := range allUsers {
+		if u.Role == models.RoleDriver {
+			driverIDs = append(driverIDs, u.ID)
 		}
 	}
 
@@ -86,4 +73,38 @@ func SeedDemoData(s *store.Store, auth *AuthService) error {
 	}
 
 	return s.MarkSeeded()
+}
+
+// ensureDemoUsers creates or repairs demo accounts (e.g. after passwordHash was not persisted).
+func ensureDemoUsers(s *store.Store, auth *AuthService) error {
+	users := []struct {
+		login, pass, first, last, phone string
+		role                            models.Role
+	}{
+		{"admin", "admin123", "Иван", "Петров", "+79001112233", models.RoleAdmin},
+		{"dispatcher", "disp123", "Мария", "Сидорова", "+79002223344", models.RoleDispatcher},
+		{"driver1", "drv123", "Алексей", "Козлов", "+79003334455", models.RoleDriver},
+		{"driver2", "drv123", "Дмитрий", "Новиков", "+79004445566", models.RoleDriver},
+	}
+	for _, u := range users {
+		existing, err := s.FindUserByLogin(u.login)
+		if err == nil && existing.PasswordHash != "" {
+			continue
+		}
+		hash, err := auth.HashPassword(u.pass)
+		if err != nil {
+			return err
+		}
+		user := &models.User{
+			Login: u.login, PasswordHash: hash, Role: u.role,
+			FirstName: u.first, LastName: u.last, Phone: u.phone, Active: true,
+		}
+		if existing != nil {
+			user.ID = existing.ID
+		}
+		if err := s.SaveUser(user); err != nil {
+			return err
+		}
+	}
+	return nil
 }
