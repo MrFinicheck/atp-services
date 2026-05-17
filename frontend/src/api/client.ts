@@ -52,8 +52,8 @@ export const api = {
   async login(login: string, password: string) {
     if (isWails()) {
       const { Login } = await import('../../wailsjs/go/main/App');
-      const { LoginRequest } = await import('../../wailsjs/go/models');
-      const res = await Login(new LoginRequest({ login, password }));
+      const wailsModels = await import('../../wailsjs/go/models');
+      const res = await Login(new wailsModels.models.LoginRequest({ login, password }));
       return { token: res.token, user: res.user as User };
     }
     return httpCall<{ token: string; user: User }>('/api/login', {
