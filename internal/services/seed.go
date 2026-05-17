@@ -4,10 +4,10 @@ import (
 	"time"
 
 	"atp-services/internal/models"
-	"atp-services/internal/store"
+	"atp-services/internal/ports"
 )
 
-func SeedDemoData(s *store.Store, auth *AuthService) error {
+func SeedDemoData(s ports.UnitOfWork, auth ports.AuthService) error {
 	if err := ensureDemoUsers(s, auth); err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func SeedDemoData(s *store.Store, auth *AuthService) error {
 }
 
 // ensureDemoUsers creates or repairs demo accounts (e.g. after passwordHash was not persisted).
-func ensureDemoUsers(s *store.Store, auth *AuthService) error {
+func ensureDemoUsers(s ports.UserRepository, auth ports.AuthService) error {
 	users := []struct {
 		login, pass, first, last, phone string
 		role                            models.Role

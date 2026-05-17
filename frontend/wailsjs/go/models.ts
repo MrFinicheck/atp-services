@@ -250,6 +250,7 @@ export namespace models {
 	export class User {
 	    id: string;
 	    login: string;
+	    passwordHash: string;
 	    role: string;
 	    firstName: string;
 	    lastName: string;
@@ -264,6 +265,7 @@ export namespace models {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
 	        this.login = source["login"];
+	        this.passwordHash = source["passwordHash"];
 	        this.role = source["role"];
 	        this.firstName = source["firstName"];
 	        this.lastName = source["lastName"];

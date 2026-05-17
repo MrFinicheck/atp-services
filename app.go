@@ -43,6 +43,14 @@ func (a *App) Login(req models.LoginRequest) (*models.LoginResponse, error) {
 	return a.core.Login(req)
 }
 
+// LoginWithCredentials — предпочтительный метод для Wails UI (логин и пароль отдельными строками).
+func (a *App) LoginWithCredentials(login, password string) (*models.LoginResponse, error) {
+	if err := a.core.EnsureReady(); err != nil {
+		return nil, err
+	}
+	return a.core.LoginWithCredentials(login, password)
+}
+
 func (a *App) Logout(token string) error {
 	return a.core.Logout(token)
 }

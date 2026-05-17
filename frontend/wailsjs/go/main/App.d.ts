@@ -30,6 +30,8 @@ export function ListWaybills(arg1:string):Promise<Array<models.Waybill>>;
 
 export function Login(arg1:models.LoginRequest):Promise<models.LoginResponse>;
 
+export function LoginWithCredentials(arg1:string,arg2:string):Promise<models.LoginResponse>;
+
 export function Logout(arg1:string):Promise<void>;
 
 export function Me(arg1:string):Promise<models.User>;

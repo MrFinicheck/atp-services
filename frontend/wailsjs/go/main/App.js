@@ -58,6 +58,10 @@ export function Login(arg1) {
   return window['go']['main']['App']['Login'](arg1);
 }
 
+export function LoginWithCredentials(arg1, arg2) {
+  return window['go']['main']['App']['LoginWithCredentials'](arg1, arg2);
+}
+
 export function Logout(arg1) {
   return window['go']['main']['App']['Logout'](arg1);
 }

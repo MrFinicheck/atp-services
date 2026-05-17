@@ -4,21 +4,21 @@ import (
 	"errors"
 
 	"atp-services/internal/models"
-	"atp-services/internal/store"
+	"atp-services/internal/ports"
 )
 
 const fuelOverrunTolerance = 0.05
 
 type TariffService struct {
-	store *store.Store
+	tariffs ports.TariffRepository
 }
 
-func NewTariffService(s *store.Store) *TariffService {
-	return &TariffService{store: s}
+func NewTariffService(uow ports.TariffRepository) *TariffService {
+	return &TariffService{tariffs: uow}
 }
 
 func (ts *TariffService) CalculatePrice(tariffID string, distanceKm, idleHours float64, urgent bool) (float64, error) {
-	t, err := ts.store.FindTariff(tariffID)
+	t, err := ts.tariffs.FindTariff(tariffID)
 	if err != nil {
 		return 0, err
 	}
@@ -37,12 +37,12 @@ func (ts *TariffService) CalculatePrice(tariffID string, distanceKm, idleHours f
 }
 
 func (ts *TariffService) List() ([]models.Tariff, error) {
-	return ts.store.ListTariffs()
+	return ts.tariffs.ListTariffs()
 }
 
 func (ts *TariffService) Save(t *models.Tariff) error {
 	if t.UrgencyCoeff <= 0 {
 		t.UrgencyCoeff = 1.5
 	}
-	return ts.store.SaveTariff(t)
+	return ts.tariffs.SaveTariff(t)
 }

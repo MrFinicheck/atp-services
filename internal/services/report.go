@@ -4,21 +4,24 @@ import (
 	"time"
 
 	"atp-services/internal/models"
-	"atp-services/internal/store"
+	"atp-services/internal/ports"
 )
 
 type ReportService struct {
-	store *store.Store
+	orders   ports.OrderRepository
+	vehicles ports.VehicleRepository
+	waybills ports.WaybillRepository
+	users    ports.UserRepository
 }
 
-func NewReportService(s *store.Store) *ReportService {
-	return &ReportService{store: s}
+func NewReportService(uow ports.UnitOfWork) *ReportService {
+	return &ReportService{orders: uow, vehicles: uow, waybills: uow, users: uow}
 }
 
 func (rs *ReportService) Dashboard() (*models.DashboardStats, error) {
-	orders, _ := rs.store.ListOrders()
-	vehicles, _ := rs.store.ListVehicles()
-	waybills, _ := rs.store.ListWaybills()
+	orders, _ := rs.orders.ListOrders()
+	vehicles, _ := rs.vehicles.ListVehicles()
+	waybills, _ := rs.waybills.ListWaybills()
 
 	today := time.Now().Format("2006-01-02")
 	month := time.Now().Format("2006-01")
@@ -49,7 +52,7 @@ func (rs *ReportService) Dashboard() (*models.DashboardStats, error) {
 }
 
 func (rs *ReportService) DriverRating() ([]map[string]any, error) {
-	orders, err := rs.store.ListOrders()
+	orders, err := rs.orders.ListOrders()
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +66,7 @@ func (rs *ReportService) DriverRating() ([]map[string]any, error) {
 	}
 	var result []map[string]any
 	for id, total := range counts {
-		u, err := rs.store.FindUserByID(id)
+		u, err := rs.users.FindUserByID(id)
 		name := id
 		if err == nil {
 			name = u.LastName + " " + u.FirstName

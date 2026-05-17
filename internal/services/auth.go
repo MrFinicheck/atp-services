@@ -7,21 +7,22 @@ import (
 	"time"
 
 	"atp-services/internal/models"
-	"atp-services/internal/store"
+	"atp-services/internal/ports"
 
 	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthService struct {
-	store *store.Store
+	users    ports.UserRepository
+	sessions ports.SessionRepository
 }
 
-func NewAuthService(s *store.Store) *AuthService {
-	return &AuthService{store: s}
+func NewAuthService(uow ports.UnitOfWork) *AuthService {
+	return &AuthService{users: uow, sessions: uow}
 }
 
 func (a *AuthService) Login(req models.LoginRequest) (*models.LoginResponse, error) {
-	u, err := a.store.FindUserByLogin(req.Login)
+	u, err := a.users.FindUserByLogin(req.Login)
 	if err != nil {
 		return nil, errors.New("invalid credentials")
 	}
@@ -41,7 +42,7 @@ func (a *AuthService) Login(req models.LoginRequest) (*models.LoginResponse, err
 		Role:      u.Role,
 		ExpiresAt: time.Now().Add(24 * time.Hour),
 	}
-	if err := a.store.SaveSession(sess); err != nil {
+	if err := a.sessions.SaveSession(sess); err != nil {
 		return nil, err
 	}
 	u.PasswordHash = ""
@@ -49,15 +50,15 @@ func (a *AuthService) Login(req models.LoginRequest) (*models.LoginResponse, err
 }
 
 func (a *AuthService) Logout(token string) error {
-	return a.store.DeleteSession(token)
+	return a.sessions.DeleteSession(token)
 }
 
 func (a *AuthService) Validate(token string) (*models.User, error) {
-	sess, err := a.store.FindSession(token)
+	sess, err := a.sessions.FindSession(token)
 	if err != nil {
 		return nil, errors.New("unauthorized")
 	}
-	u, err := a.store.FindUserByID(sess.UserID)
+	u, err := a.users.FindUserByID(sess.UserID)
 	if err != nil {
 		return nil, errors.New("unauthorized")
 	}

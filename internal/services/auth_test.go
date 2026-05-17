@@ -17,7 +17,7 @@ func TestLoginDemoUser(t *testing.T) {
 	defer st.Close()
 
 	auth := NewAuthService(st)
-	if err := SeedDemoData(st, auth); err != nil {
+	if err := NewSeeder(st, auth).Seed(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -41,7 +41,7 @@ func TestFindUserByLogin(t *testing.T) {
 	}
 	defer st.Close()
 	auth := NewAuthService(st)
-	_ = SeedDemoData(st, auth)
+	_ = NewSeeder(st, auth).Seed()
 	u, err := st.FindUserByLogin("admin")
 	if err != nil {
 		t.Fatal(err)

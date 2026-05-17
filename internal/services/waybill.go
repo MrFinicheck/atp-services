@@ -6,22 +6,24 @@ import (
 	"time"
 
 	"atp-services/internal/models"
-	"atp-services/internal/store"
+	"atp-services/internal/ports"
 )
 
 type WaybillService struct {
-	store *store.Store
+	waybills ports.WaybillRepository
+	vehicles ports.VehicleRepository
+	audit    ports.AuditRepository
 }
 
-func NewWaybillService(s *store.Store) *WaybillService {
-	return &WaybillService{store: s}
+func NewWaybillService(uow ports.UnitOfWork) *WaybillService {
+	return &WaybillService{waybills: uow, vehicles: uow, audit: uow}
 }
 
 func (ws *WaybillService) CloseShift(driverID string, req models.CloseShiftRequest) (*models.CloseShiftResult, error) {
 	if req.EndOdometer <= req.StartOdometer {
 		return nil, errors.New("end odometer must be greater than start")
 	}
-	v, err := ws.store.FindVehicle(req.VehicleID)
+	v, err := ws.vehicles.FindVehicle(req.VehicleID)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +38,7 @@ func (ws *WaybillService) CloseShift(driverID string, req models.CloseShiftReque
 		overPercent = ((actual - norm) / norm) * 100
 	}
 	date := time.Now().Format("2006-01-02")
-	wb, err := ws.store.FindOpenWaybill(driverID, date)
+	wb, err := ws.waybills.FindOpenWaybill(driverID, date)
 	if err != nil {
 		wb = &models.Waybill{
 			DriverID:  driverID,
@@ -65,7 +67,7 @@ func (ws *WaybillService) CloseShift(driverID string, req models.CloseShiftReque
 	}
 	if requireComment {
 		result.Message = "Перерасход топлива. Укажите комментарий для закрытия смены."
-		if err := ws.store.SaveWaybill(wb); err != nil {
+		if err := ws.waybills.SaveWaybill(wb); err != nil {
 			return nil, err
 		}
 		return result, nil
@@ -73,15 +75,15 @@ func (ws *WaybillService) CloseShift(driverID string, req models.CloseShiftReque
 	now := time.Now()
 	wb.Closed = true
 	wb.ClosedAt = &now
-	if err := ws.store.SaveWaybill(wb); err != nil {
+	if err := ws.waybills.SaveWaybill(wb); err != nil {
 		return nil, err
 	}
-	_ = ws.store.AddAudit(driverID, "close_shift", "waybill", wb.ID, result.Message)
+	_ = ws.audit.AddAudit(driverID, "close_shift", "waybill", wb.ID, result.Message)
 	result.Message = "Смена успешно закрыта"
 	result.Blocked = false
 	return result, nil
 }
 
 func (ws *WaybillService) List() ([]models.Waybill, error) {
-	return ws.store.ListWaybills()
+	return ws.waybills.ListWaybills()
 }

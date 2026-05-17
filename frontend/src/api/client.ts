@@ -25,7 +25,26 @@ export function clearToken() {
 }
 
 function isWails(): boolean {
-  return !!(window as any).go?.main?.App;
+  return !!(window as any)?.go?.main?.App;
+}
+
+function wailsError(err: unknown): string {
+  if (typeof err === 'string') return err;
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === 'object' && 'message' in err) {
+    return String((err as { message: unknown }).message);
+  }
+  return 'Неизвестная ошибка';
+}
+
+function pickToken(res: Record<string, unknown>): string {
+  const t = res.token ?? res.Token;
+  return typeof t === 'string' ? t : '';
+}
+
+function pickUser(res: Record<string, unknown>): User {
+  const u = (res.user ?? res.User) as User;
+  return u;
 }
 
 async function wailsCall<T>(method: string, ...args: unknown[]): Promise<T> {
@@ -41,24 +60,44 @@ async function httpCall<T>(path: string, init?: RequestInit): Promise<T> {
   const token = getToken();
   if (token) headers['Authorization'] = `Bearer ${token}`;
   const res = await fetch(path, { ...init, headers });
+  const body = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: res.statusText }));
-    throw new Error(err.message || 'Request failed');
+    throw new Error((body as { message?: string }).message || res.statusText);
   }
-  return res.json();
+  return body as T;
 }
 
 export const api = {
   async login(login: string, password: string) {
+    const trimmedLogin = login.trim();
+    const trimmedPass = password;
+
     if (isWails()) {
-      const { Login } = await import('../../wailsjs/go/main/App');
-      const wailsModels = await import('../../wailsjs/go/models');
-      const res = await Login(new wailsModels.models.LoginRequest({ login, password }));
-      return { token: res.token, user: res.user as User };
+      const { LoginWithCredentials } = await import('../../wailsjs/go/main/App');
+      try {
+        const res = (await LoginWithCredentials(trimmedLogin, trimmedPass)) as unknown as Record<string, unknown>;
+        const token = pickToken(res);
+        if (!token) {
+          throw new Error('Сервер не вернул токен сессии');
+        }
+        return { token, user: pickUser(res) };
+      } catch (e) {
+        // Fallback: старый метод со struct
+        try {
+          const { Login } = await import('../../wailsjs/go/main/App');
+          const res = (await Login({ login: trimmedLogin, password: trimmedPass })) as unknown as Record<string, unknown>;
+          const token = pickToken(res);
+          if (!token) throw new Error('Сервер не вернул токен сессии');
+          return { token, user: pickUser(res) };
+        } catch {
+          throw new Error(wailsError(e));
+        }
+      }
     }
+
     return httpCall<{ token: string; user: User }>('/api/login', {
       method: 'POST',
-      body: JSON.stringify({ login, password }),
+      body: JSON.stringify({ login: trimmedLogin, password: trimmedPass }),
     });
   },
 
@@ -171,3 +210,5 @@ export const api = {
     return httpCall('/api/waybills');
   },
 };
+
+export { wailsError };

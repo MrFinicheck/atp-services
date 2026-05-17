@@ -5,16 +5,19 @@ import (
 	"time"
 
 	"atp-services/internal/models"
-	"atp-services/internal/store"
+	"atp-services/internal/ports"
 )
 
 type OrderService struct {
-	store  *store.Store
-	tariff *TariffService
+	orders   ports.OrderRepository
+	vehicles ports.VehicleRepository
+	audit    ports.AuditRepository
+	users    ports.UserRepository
+	tariff   ports.TariffCalculator
 }
 
-func NewOrderService(s *store.Store, ts *TariffService) *OrderService {
-	return &OrderService{store: s, tariff: ts}
+func NewOrderService(uow ports.UnitOfWork, ts ports.TariffCalculator) *OrderService {
+	return &OrderService{orders: uow, vehicles: uow, audit: uow, users: uow, tariff: ts}
 }
 
 func (os *OrderService) Create(req models.CreateOrderRequest, actorID string) (*models.Order, error) {
@@ -41,15 +44,15 @@ func (os *OrderService) Create(req models.CreateOrderRequest, actorID string) (*
 		ScheduledAt: scheduled,
 		CreatedAt:   time.Now(),
 	}
-	if err := os.store.SaveOrder(o); err != nil {
+	if err := os.orders.SaveOrder(o); err != nil {
 		return nil, err
 	}
-	_ = os.store.AddAudit(actorID, "create", "order", o.ID, req.FromAddr+" -> "+req.ToAddr)
+	_ = os.audit.AddAudit(actorID, "create", "order", o.ID, req.FromAddr+" -> "+req.ToAddr)
 	return o, nil
 }
 
 func (os *OrderService) ListForRole(user *models.User) ([]models.Order, error) {
-	all, err := os.store.ListOrders()
+	all, err := os.orders.ListOrders()
 	if err != nil {
 		return nil, err
 	}
@@ -69,11 +72,11 @@ func (os *OrderService) ListForRole(user *models.User) ([]models.Order, error) {
 }
 
 func (os *OrderService) UpdateStatus(orderID string, status models.OrderStatus, actorID string) (*models.Order, error) {
-	o, err := os.store.FindOrder(orderID)
+	o, err := os.orders.FindOrder(orderID)
 	if err != nil {
 		return nil, err
 	}
-	if user, _ := os.store.FindUserByID(actorID); user != nil && user.Role == models.RoleDriver && o.DriverID != actorID {
+	if user, _ := os.users.FindUserByID(actorID); user != nil && user.Role == models.RoleDriver && o.DriverID != actorID {
 		return nil, errors.New("access denied")
 	}
 	now := time.Now()
@@ -84,19 +87,19 @@ func (os *OrderService) UpdateStatus(orderID string, status models.OrderStatus, 
 		o.CompletedAt = &now
 	}
 	o.Status = status
-	if err := os.store.SaveOrder(o); err != nil {
+	if err := os.orders.SaveOrder(o); err != nil {
 		return nil, err
 	}
-	_ = os.store.AddAudit(actorID, "status", "order", o.ID, string(status))
+	_ = os.audit.AddAudit(actorID, "status", "order", o.ID, string(status))
 	return o, nil
 }
 
 func (os *OrderService) ScheduleToday() ([]models.VehicleScheduleItem, error) {
-	vehicles, err := os.store.ListVehicles()
+	vehicles, err := os.vehicles.ListVehicles()
 	if err != nil {
 		return nil, err
 	}
-	orders, err := os.store.ListOrders()
+	orders, err := os.orders.ListOrders()
 	if err != nil {
 		return nil, err
 	}
