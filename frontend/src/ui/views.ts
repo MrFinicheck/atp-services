@@ -1,4 +1,4 @@
-import { api, clearToken, getToken, setToken } from '../api/client';
+import { api, clearToken, getToken, setToken, wailsError } from '../api/client';
 import type { Role, User } from '../types';
 
 let currentUser: User | null = null;
@@ -55,7 +55,7 @@ function renderLogin() {
       setToken(res.token);
       await renderApp(rootEl);
     } catch (err: unknown) {
-      errEl.textContent = err instanceof Error ? err.message : 'Ошибка входа';
+      errEl.textContent = wailsError(err);
     }
   });
 }
