@@ -133,6 +133,17 @@ func (s *Store) ListUsers() ([]models.User, error) {
 	return out, err
 }
 
+func (s *Store) DeleteUser(id string) error {
+	u, err := s.FindUserByID(id)
+	if err != nil {
+		return err
+	}
+	if err := s.delete("user:", id); err != nil {
+		return err
+	}
+	return s.db.Delete([]byte("user:login:"+u.Login), nil)
+}
+
 // Sessions
 
 func (s *Store) SaveSession(sess *models.Session) error {
@@ -292,14 +303,36 @@ func (s *Store) ListWaybills() ([]models.Waybill, error) {
 }
 
 func (s *Store) FindOpenWaybill(driverID, date string) (*models.Waybill, error) {
+	wb, err := s.FindWaybillByDriverAndDate(driverID, date)
+	if err != nil {
+		return nil, err
+	}
+	if wb.Closed {
+		return nil, ErrNotFound
+	}
+	return wb, nil
+}
+
+func (s *Store) FindWaybillByDriverAndDate(driverID, date string) (*models.Waybill, error) {
 	all, err := s.ListWaybills()
 	if err != nil {
 		return nil, err
 	}
-	for _, w := range all {
-		if w.DriverID == driverID && w.Date == date && !w.Closed {
+	var open *models.Waybill
+	for i := range all {
+		w := all[i]
+		if w.DriverID != driverID || w.Date != date {
+			continue
+		}
+		if w.Closed {
 			return &w, nil
 		}
+		if open == nil {
+			open = &w
+		}
+	}
+	if open != nil {
+		return open, nil
 	}
 	return nil, ErrNotFound
 }

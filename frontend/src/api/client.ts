@@ -1,6 +1,9 @@
+import { asArray, normalizeOrders, normalizeSchedule } from './normalize';
 import type {
   Client,
   CloseShiftResult,
+  ShiftStatus,
+  OpenShiftResult,
   DashboardStats,
   Order,
   Tariff,
@@ -115,8 +118,25 @@ export const api = {
 
   async listClients(): Promise<Client[]> {
     const token = getToken();
-    if (isWails()) return wailsCall('ListClients', token);
-    return httpCall('/api/clients');
+    const raw = isWails()
+      ? await wailsCall<unknown>('ListClients', token)
+      : await httpCall<unknown>('/api/clients');
+    return asArray<Client>(raw);
+  },
+
+  async saveClient(c: Client): Promise<Client> {
+    const token = getToken();
+    const payload = {
+      name: String(c.name ?? '').trim(),
+      phone: String(c.phone ?? '').trim(),
+      debtLimit: Number(c.debtLimit ?? 0),
+    };
+    if (isWails()) {
+      const { SaveClient } = await import('../../wailsjs/go/main/App');
+      const { models } = await import('../../wailsjs/go/models');
+      return SaveClient(token, new models.Client(payload));
+    }
+    return httpCall('/api/clients', { method: 'POST', body: JSON.stringify(payload) });
   },
 
   async listVehicles(): Promise<Vehicle[]> {
@@ -137,10 +157,31 @@ export const api = {
     return httpCall('/api/users');
   },
 
+  async createUser(
+    user: Pick<User, 'login' | 'role' | 'firstName' | 'lastName' | 'phone'> & { active?: boolean },
+    password: string
+  ): Promise<User> {
+    const token = getToken();
+    const payload = { ...user, active: user.active !== false };
+    if (isWails()) return wailsCall('CreateUser', token, payload, password);
+    return httpCall('/api/users', {
+      method: 'POST',
+      body: JSON.stringify({ user: payload, password }),
+    });
+  },
+
+  async deleteUser(userId: string): Promise<void> {
+    const token = getToken();
+    if (isWails()) return wailsCall('DeleteUser', token, userId);
+    await httpCall(`/api/users?id=${encodeURIComponent(userId)}`, { method: 'DELETE' });
+  },
+
   async listOrders(): Promise<Order[]> {
     const token = getToken();
-    if (isWails()) return wailsCall('ListOrders', token);
-    return httpCall('/api/orders');
+    const raw = isWails()
+      ? await wailsCall<unknown>('ListOrders', token)
+      : await httpCall<unknown>('/api/orders');
+    return normalizeOrders(raw);
   },
 
   async createOrder(req: Record<string, unknown>): Promise<Order> {
@@ -170,14 +211,58 @@ export const api = {
 
   async vehicleSchedule(): Promise<VehicleScheduleItem[]> {
     const token = getToken();
-    if (isWails()) return wailsCall('VehicleSchedule', token);
-    return httpCall('/api/schedule');
+    let raw: unknown;
+    if (isWails()) raw = await wailsCall('VehicleSchedule', token);
+    else raw = await httpCall('/api/schedule');
+    return normalizeSchedule(raw);
+  },
+
+  async shiftStatus(): Promise<ShiftStatus> {
+    const token = getToken();
+    if (isWails()) return wailsCall('ShiftStatus', token);
+    return httpCall('/api/shift/status');
+  },
+
+  async listDriversAvailable(): Promise<User[]> {
+    const token = getToken();
+    const raw = isWails()
+      ? await wailsCall<unknown>('ListDriversAvailable', token)
+      : await httpCall<unknown>('/api/drivers/available');
+    return asArray<User>(raw);
+  },
+
+  async openShift(req: Record<string, unknown>): Promise<OpenShiftResult> {
+    const token = getToken();
+    const payload = {
+      vehicleId: String(req.vehicleId ?? ''),
+      startOdometer: Number(req.startOdometer),
+      fuelStart: Number(req.fuelStart),
+    };
+    if (isWails()) {
+      const { OpenShift } = await import('../../wailsjs/go/main/App');
+      const { models } = await import('../../wailsjs/go/models');
+      return OpenShift(token, new models.OpenShiftRequest(payload));
+    }
+    return httpCall('/api/shift/open', { method: 'POST', body: JSON.stringify(payload) });
   },
 
   async closeShift(req: Record<string, unknown>): Promise<CloseShiftResult> {
     const token = getToken();
-    if (isWails()) return wailsCall('CloseShift', token, req);
-    return httpCall('/api/shift/close', { method: 'POST', body: JSON.stringify(req) });
+    const payload = {
+      vehicleId: '',
+      startOdometer: 0,
+      endOdometer: Number(req.endOdometer),
+      fuelStart: 0,
+      fuelEnd: Number(req.fuelEnd),
+      fuelRefilled: Number(req.fuelRefilled ?? 0),
+      comment: String(req.comment ?? ''),
+    };
+    if (isWails()) {
+      const { CloseShift } = await import('../../wailsjs/go/main/App');
+      const { models } = await import('../../wailsjs/go/models');
+      return CloseShift(token, new models.CloseShiftRequest(payload));
+    }
+    return httpCall('/api/shift/close', { method: 'POST', body: JSON.stringify(payload) });
   },
 
   async dashboard(): Promise<DashboardStats> {

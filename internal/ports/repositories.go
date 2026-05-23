@@ -5,6 +5,7 @@ import "atp-services/internal/models"
 // UserRepository — учётные записи (ISP).
 type UserRepository interface {
 	SaveUser(u *models.User) error
+	DeleteUser(id string) error
 	FindUserByLogin(login string) (*models.User, error)
 	FindUserByID(id string) (*models.User, error)
 	ListUsers() ([]models.User, error)
@@ -49,6 +50,7 @@ type WaybillRepository interface {
 	SaveWaybill(w *models.Waybill) error
 	ListWaybills() ([]models.Waybill, error)
 	FindOpenWaybill(driverID, date string) (*models.Waybill, error)
+	FindWaybillByDriverAndDate(driverID, date string) (*models.Waybill, error)
 }
 
 // AuditRepository — журнал аудита.

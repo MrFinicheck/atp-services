@@ -134,6 +134,17 @@ type CreateOrderRequest struct {
 	ScheduledAt string  `json:"scheduledAt"`
 }
 
+type OpenShiftRequest struct {
+	VehicleID     string  `json:"vehicleId"`
+	StartOdometer float64 `json:"startOdometer"`
+	FuelStart     float64 `json:"fuelStart"`
+}
+
+type OpenShiftResult struct {
+	Waybill Waybill `json:"waybill"`
+	Message string  `json:"message"`
+}
+
 type CloseShiftRequest struct {
 	VehicleID     string  `json:"vehicleId"`
 	StartOdometer float64 `json:"startOdometer"`
@@ -149,6 +160,15 @@ type CloseShiftResult struct {
 	Blocked       bool    `json:"blocked"`
 	RequireComment bool   `json:"requireComment"`
 	Message       string  `json:"message"`
+}
+
+type ShiftStatus struct {
+	Date          string  `json:"date"`
+	Opened        bool    `json:"opened"`
+	Closed        bool    `json:"closed"`
+	VehicleID     string  `json:"vehicleId,omitempty"`
+	StartOdometer float64 `json:"startOdometer,omitempty"`
+	FuelStart     float64 `json:"fuelStart,omitempty"`
 }
 
 type DashboardStats struct {

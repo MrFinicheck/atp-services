@@ -6,18 +6,20 @@ import (
 
 	"atp-services/internal/models"
 	"atp-services/internal/ports"
+	"atp-services/internal/store"
 )
 
 type OrderService struct {
 	orders   ports.OrderRepository
 	vehicles ports.VehicleRepository
+	waybills ports.WaybillRepository
 	audit    ports.AuditRepository
 	users    ports.UserRepository
 	tariff   ports.TariffCalculator
 }
 
 func NewOrderService(uow ports.UnitOfWork, ts ports.TariffCalculator) *OrderService {
-	return &OrderService{orders: uow, vehicles: uow, audit: uow, users: uow, tariff: ts}
+	return &OrderService{orders: uow, vehicles: uow, waybills: uow, audit: uow, users: uow, tariff: ts}
 }
 
 func (os *OrderService) Create(req models.CreateOrderRequest, actorID string) (*models.Order, error) {
@@ -28,6 +30,14 @@ func (os *OrderService) Create(req models.CreateOrderRequest, actorID string) (*
 	scheduled, _ := time.Parse(time.RFC3339, req.ScheduledAt)
 	if scheduled.IsZero() {
 		scheduled = time.Now()
+	}
+	shiftDate := scheduled.Format("2006-01-02")
+	open, err := os.driverShiftOpen(req.DriverID, shiftDate)
+	if err != nil {
+		return nil, err
+	}
+	if !open {
+		return nil, errors.New("водитель не открыл смену на эту дату — назначение невозможно")
 	}
 	o := &models.Order{
 		ClientID:    req.ClientID,
@@ -64,6 +74,9 @@ func (os *OrderService) ListForRole(user *models.User) ([]models.Order, error) {
 			if o.DriverID == user.ID && o.ScheduledAt.Format("2006-01-02") == today {
 				filtered = append(filtered, o)
 			}
+		}
+		if filtered == nil {
+			filtered = []models.Order{}
 		}
 		return filtered, nil
 	default:
@@ -109,7 +122,7 @@ func (os *OrderService) ScheduleToday() ([]models.VehicleScheduleItem, error) {
 		if !v.Active {
 			continue
 		}
-		item := models.VehicleScheduleItem{VehicleID: v.ID, Plate: v.Plate}
+		item := models.VehicleScheduleItem{VehicleID: v.ID, Plate: v.Plate, Orders: []models.Order{}}
 		for _, o := range orders {
 			if o.VehicleID == v.ID && o.ScheduledAt.Format("2006-01-02") == today {
 				item.Orders = append(item.Orders, o)
@@ -122,4 +135,15 @@ func (os *OrderService) ScheduleToday() ([]models.VehicleScheduleItem, error) {
 
 func (os *OrderService) PreviewPrice(tariffID string, distanceKm, idleHours float64, urgent bool) (float64, error) {
 	return os.tariff.CalculatePrice(tariffID, distanceKm, idleHours, urgent)
+}
+
+func (os *OrderService) driverShiftOpen(driverID, date string) (bool, error) {
+	wb, err := os.waybills.FindWaybillByDriverAndDate(driverID, date)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	return !wb.Closed, nil
 }

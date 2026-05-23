@@ -83,3 +83,17 @@ export interface CloseShiftResult {
   requireComment: boolean;
   message: string;
 }
+
+export interface ShiftStatus {
+  date: string;
+  opened: boolean;
+  closed: boolean;
+  vehicleId?: string;
+  startOdometer?: number;
+  fuelStart?: number;
+}
+
+export interface OpenShiftResult {
+  waybill: Waybill;
+  message: string;
+}

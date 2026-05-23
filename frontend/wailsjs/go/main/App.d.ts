@@ -10,6 +10,8 @@ export function CreateUser(arg1:string,arg2:models.User,arg3:string):Promise<mod
 
 export function Dashboard(arg1:string):Promise<models.DashboardStats>;
 
+export function DeleteUser(arg1:string,arg2:string):Promise<void>;
+
 export function DriverRating(arg1:string):Promise<Array<Record<string, any>>>;
 
 export function GetDataDir():Promise<string>;
@@ -17,6 +19,8 @@ export function GetDataDir():Promise<string>;
 export function ListAudit(arg1:string):Promise<Array<models.AuditEntry>>;
 
 export function ListClients(arg1:string):Promise<Array<models.Client>>;
+
+export function ListDriversAvailable(arg1:string):Promise<Array<models.User>>;
 
 export function ListOrders(arg1:string):Promise<Array<models.Order>>;
 
@@ -36,6 +40,8 @@ export function Logout(arg1:string):Promise<void>;
 
 export function Me(arg1:string):Promise<models.User>;
 
+export function OpenShift(arg1:string,arg2:models.OpenShiftRequest):Promise<models.OpenShiftResult>;
+
 export function PreviewPrice(arg1:string,arg2:string,arg3:number,arg4:number,arg5:boolean):Promise<number>;
 
 export function SaveClient(arg1:string,arg2:models.Client):Promise<models.Client>;
@@ -43,6 +49,8 @@ export function SaveClient(arg1:string,arg2:models.Client):Promise<models.Client
 export function SaveTariff(arg1:string,arg2:models.Tariff):Promise<models.Tariff>;
 
 export function SaveVehicle(arg1:string,arg2:models.Vehicle):Promise<models.Vehicle>;
+
+export function ShiftStatus(arg1:string):Promise<models.ShiftStatus>;
 
 export function UpdateOrderStatus(arg1:string,arg2:string,arg3:string):Promise<models.Order>;
 
