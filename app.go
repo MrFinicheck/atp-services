@@ -91,6 +91,13 @@ func (a *App) CreateUser(token string, u models.User, password string) (*models.
 	return a.core.CreateUser(token, u, password)
 }
 
+func (a *App) DeleteUser(token string, userID string) error {
+	if err := a.core.EnsureReady(); err != nil {
+		return err
+	}
+	return a.core.DeleteUser(token, userID)
+}
+
 func (a *App) ListOrders(token string) ([]models.Order, error) {
 	return a.core.ListOrders(token)
 }
@@ -111,8 +118,20 @@ func (a *App) VehicleSchedule(token string) ([]models.VehicleScheduleItem, error
 	return a.core.VehicleSchedule(token)
 }
 
+func (a *App) OpenShift(token string, req models.OpenShiftRequest) (*models.OpenShiftResult, error) {
+	return a.core.OpenShift(token, req)
+}
+
 func (a *App) CloseShift(token string, req models.CloseShiftRequest) (*models.CloseShiftResult, error) {
 	return a.core.CloseShift(token, req)
+}
+
+func (a *App) ShiftStatus(token string) (*models.ShiftStatus, error) {
+	return a.core.ShiftStatus(token)
+}
+
+func (a *App) ListDriversAvailable(token string) ([]models.User, error) {
+	return a.core.ListDriversAvailable(token)
 }
 
 func (a *App) ListWaybills(token string) ([]models.Waybill, error) {

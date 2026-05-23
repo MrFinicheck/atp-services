@@ -62,14 +62,21 @@ func SeedDemoData(s ports.UnitOfWork, auth ports.AuthService) error {
 	}
 
 	ts := NewTariffService(s)
+	ws := NewWaybillService(s)
 	os := NewOrderService(s, ts)
 	if len(clientIDs) > 0 && len(vehicleIDs) > 0 && len(driverIDs) > 0 {
-		_, _ = os.Create(models.CreateOrderRequest{
-			ClientID: clientIDs[0], VehicleID: vehicleIDs[0], DriverID: driverIDs[0],
-			FromAddr: "ул. Ленина, 10", ToAddr: "пр. Мира, 25",
-			DistanceKm: 15, IdleHours: 0.5, Urgent: false, TariffID: tariffIDs[0],
-			ScheduledAt: time.Now().Format(time.RFC3339),
-		}, "system")
+		driver1, _ := s.FindUserByLogin("driver1")
+		if driver1 != nil {
+			_, _ = ws.OpenShift(driver1.ID, models.OpenShiftRequest{
+				VehicleID: vehicleIDs[0], StartOdometer: 1000, FuelStart: 40,
+			})
+			_, _ = os.Create(models.CreateOrderRequest{
+				ClientID: clientIDs[0], VehicleID: vehicleIDs[0], DriverID: driver1.ID,
+				FromAddr: "ул. Ленина, 10", ToAddr: "пр. Мира, 25",
+				DistanceKm: 15, IdleHours: 0.5, Urgent: false, TariffID: tariffIDs[0],
+				ScheduledAt: time.Now().Format(time.RFC3339),
+			}, "system")
+		}
 	}
 
 	return s.MarkSeeded()

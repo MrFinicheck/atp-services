@@ -36,7 +36,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/orders/preview-price", s.auth(s.handlePreviewPrice))
 	mux.HandleFunc("/api/schedule", s.auth(s.handleSchedule))
 	mux.HandleFunc("/api/waybills", s.auth(s.handleWaybills))
+	mux.HandleFunc("/api/shift/open", s.auth(s.handleOpenShift))
 	mux.HandleFunc("/api/shift/close", s.auth(s.handleCloseShift))
+	mux.HandleFunc("/api/shift/status", s.auth(s.handleShiftStatus))
+	mux.HandleFunc("/api/drivers/available", s.auth(s.handleDriversAvailable))
 	mux.HandleFunc("/api/dashboard", s.auth(s.handleDashboard))
 	mux.HandleFunc("/api/reports/drivers", s.auth(s.handleDriverRating))
 	mux.HandleFunc("/api/audit", s.auth(s.handleAudit))
@@ -191,6 +194,17 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeJSON(w, out)
+	case http.MethodDelete:
+		userID := r.URL.Query().Get("id")
+		if userID == "" {
+			http.Error(w, "id required", http.StatusBadRequest)
+			return
+		}
+		if err := s.app.DeleteUser(token, userID); err != nil {
+			writeErr(w, err)
+			return
+		}
+		writeJSON(w, map[string]bool{"ok": true})
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
@@ -285,6 +299,24 @@ func (s *Server) handleWaybills(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, list)
 }
 
+func (s *Server) handleOpenShift(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req models.OpenShiftRequest
+	if !readJSON(r, &req) {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	out, err := s.app.OpenShift(tokenFrom(r), req)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, out)
+}
+
 func (s *Server) handleCloseShift(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -296,6 +328,32 @@ func (s *Server) handleCloseShift(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out, err := s.app.CloseShift(tokenFrom(r), req)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, out)
+}
+
+func (s *Server) handleShiftStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	out, err := s.app.ShiftStatus(tokenFrom(r))
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, out)
+}
+
+func (s *Server) handleDriversAvailable(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	out, err := s.app.ListDriversAvailable(tokenFrom(r))
 	if err != nil {
 		writeErr(w, err)
 		return

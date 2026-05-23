@@ -18,6 +18,10 @@ export function Dashboard(arg1) {
   return window['go']['main']['App']['Dashboard'](arg1);
 }
 
+export function DeleteUser(arg1, arg2) {
+  return window['go']['main']['App']['DeleteUser'](arg1, arg2);
+}
+
 export function DriverRating(arg1) {
   return window['go']['main']['App']['DriverRating'](arg1);
 }
@@ -32,6 +36,10 @@ export function ListAudit(arg1) {
 
 export function ListClients(arg1) {
   return window['go']['main']['App']['ListClients'](arg1);
+}
+
+export function ListDriversAvailable(arg1) {
+  return window['go']['main']['App']['ListDriversAvailable'](arg1);
 }
 
 export function ListOrders(arg1) {
@@ -70,6 +78,10 @@ export function Me(arg1) {
   return window['go']['main']['App']['Me'](arg1);
 }
 
+export function OpenShift(arg1, arg2) {
+  return window['go']['main']['App']['OpenShift'](arg1, arg2);
+}
+
 export function PreviewPrice(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['PreviewPrice'](arg1, arg2, arg3, arg4, arg5);
 }
@@ -84,6 +96,10 @@ export function SaveTariff(arg1, arg2) {
 
 export function SaveVehicle(arg1, arg2) {
   return window['go']['main']['App']['SaveVehicle'](arg1, arg2);
+}
+
+export function ShiftStatus(arg1) {
+  return window['go']['main']['App']['ShiftStatus'](arg1);
 }
 
 export function UpdateOrderStatus(arg1, arg2, arg3) {

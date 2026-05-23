@@ -1,7 +1,12 @@
 package app
 
 import (
+	"errors"
+	"strings"
+	"time"
+
 	"atp-services/internal/models"
+	"atp-services/internal/store"
 )
 
 // Application — фасад use-case слоя для HTTP и Wails (SRP: только делегирование).
@@ -73,6 +78,9 @@ func (a *Application) SaveClient(token string, c models.Client) (*models.Client,
 	}
 	if u.Role != models.RoleAdmin && u.Role != models.RoleDispatcher {
 		return nil, errAccessDenied()
+	}
+	if strings.TrimSpace(c.Name) == "" {
+		return nil, errors.New("укажите название клиента")
 	}
 	if err := a.ctr.Store().SaveClient(&c); err != nil {
 		return nil, err
@@ -148,6 +156,33 @@ func (a *Application) CreateUser(token string, u models.User, password string) (
 	if actor.Role != models.RoleAdmin {
 		return nil, errAccessDenied()
 	}
+
+	u.Login = strings.TrimSpace(u.Login)
+	u.FirstName = strings.TrimSpace(u.FirstName)
+	u.LastName = strings.TrimSpace(u.LastName)
+	u.Phone = strings.TrimSpace(u.Phone)
+
+	if u.Login == "" {
+		return nil, errors.New("укажите логин")
+	}
+	if len(password) < 4 {
+		return nil, errors.New("пароль не короче 4 символов")
+	}
+	switch u.Role {
+	case models.RoleAdmin, models.RoleDispatcher, models.RoleDriver:
+	default:
+		return nil, errors.New("роль: admin, dispatcher или driver")
+	}
+	if u.FirstName == "" || u.LastName == "" {
+		return nil, errors.New("укажите имя и фамилию")
+	}
+
+	if _, err := a.ctr.Store().FindUserByLogin(u.Login); err == nil {
+		return nil, errors.New("логин уже занят")
+	} else if err != nil && !errors.Is(err, store.ErrNotFound) {
+		return nil, err
+	}
+
 	hash, err := a.ctr.Auth.HashPassword(password)
 	if err != nil {
 		return nil, err
@@ -161,12 +196,62 @@ func (a *Application) CreateUser(token string, u models.User, password string) (
 	return &u, nil
 }
 
+func (a *Application) DeleteUser(token, userID string) error {
+	actor, err := a.requireUser(token)
+	if err != nil {
+		return err
+	}
+	if actor.Role != models.RoleAdmin {
+		return errAccessDenied()
+	}
+	if userID == "" {
+		return errors.New("не указан пользователь")
+	}
+	if actor.ID == userID {
+		return errors.New("нельзя удалить свою учётную запись")
+	}
+
+	target, err := a.ctr.Store().FindUserByID(userID)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return errors.New("пользователь не найден")
+		}
+		return err
+	}
+
+	if target.Role == models.RoleAdmin {
+		users, err := a.ctr.Store().ListUsers()
+		if err != nil {
+			return err
+		}
+		admins := 0
+		for _, u := range users {
+			if u.Role == models.RoleAdmin && u.Active {
+				admins++
+			}
+		}
+		if admins <= 1 {
+			return errors.New("нельзя удалить последнего администратора")
+		}
+	}
+
+	if err := a.ctr.Store().DeleteUser(userID); err != nil {
+		return err
+	}
+	_ = a.ctr.Store().AddAudit(actor.ID, "delete", "user", userID, target.Login)
+	return nil
+}
+
 func (a *Application) ListOrders(token string) ([]models.Order, error) {
 	u, err := a.requireUser(token)
 	if err != nil {
 		return nil, err
 	}
-	return a.ctr.Orders.ListForRole(u)
+	list, err := a.ctr.Orders.ListForRole(u)
+	if list == nil {
+		list = []models.Order{}
+	}
+	return list, err
 }
 
 func (a *Application) CreateOrder(token string, req models.CreateOrderRequest) (*models.Order, error) {
@@ -206,6 +291,17 @@ func (a *Application) VehicleSchedule(token string) ([]models.VehicleScheduleIte
 	return a.ctr.Orders.ScheduleToday()
 }
 
+func (a *Application) OpenShift(token string, req models.OpenShiftRequest) (*models.OpenShiftResult, error) {
+	u, err := a.requireUser(token)
+	if err != nil {
+		return nil, err
+	}
+	if u.Role != models.RoleDriver && u.Role != models.RoleAdmin {
+		return nil, errAccessDenied()
+	}
+	return a.ctr.Waybill.OpenShift(u.ID, req)
+}
+
 func (a *Application) CloseShift(token string, req models.CloseShiftRequest) (*models.CloseShiftResult, error) {
 	u, err := a.requireUser(token)
 	if err != nil {
@@ -215,6 +311,50 @@ func (a *Application) CloseShift(token string, req models.CloseShiftRequest) (*m
 		return nil, errAccessDenied()
 	}
 	return a.ctr.Waybill.CloseShift(u.ID, req)
+}
+
+func (a *Application) ShiftStatus(token string) (*models.ShiftStatus, error) {
+	u, err := a.requireUser(token)
+	if err != nil {
+		return nil, err
+	}
+	if u.Role != models.RoleDriver && u.Role != models.RoleAdmin {
+		return nil, errAccessDenied()
+	}
+	return a.ctr.Waybill.ShiftStatus(u.ID)
+}
+
+func (a *Application) ListDriversAvailable(token string) ([]models.User, error) {
+	u, err := a.requireUser(token)
+	if err != nil {
+		return nil, err
+	}
+	if u.Role != models.RoleAdmin && u.Role != models.RoleDispatcher {
+		return nil, errAccessDenied()
+	}
+	users, err := a.ctr.Store().ListUsers()
+	if err != nil {
+		return nil, err
+	}
+	today := time.Now().Format("2006-01-02")
+	var out []models.User
+	for _, driver := range users {
+		if driver.Role != models.RoleDriver || !driver.Active {
+			continue
+		}
+		open, err := a.ctr.Waybill.DriverShiftOpen(driver.ID, today)
+		if err != nil {
+			return nil, err
+		}
+		if open {
+			driver.PasswordHash = ""
+			out = append(out, driver)
+		}
+	}
+	if out == nil {
+		out = []models.User{}
+	}
+	return out, nil
 }
 
 func (a *Application) ListWaybills(token string) ([]models.Waybill, error) {

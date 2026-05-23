@@ -28,7 +28,11 @@ type OrderService interface {
 
 // WaybillService — закрытие смены и контроль топлива.
 type WaybillService interface {
+	OpenShift(driverID string, req models.OpenShiftRequest) (*models.OpenShiftResult, error)
 	CloseShift(driverID string, req models.CloseShiftRequest) (*models.CloseShiftResult, error)
+	ShiftStatus(driverID string) (*models.ShiftStatus, error)
+	DriverShiftOpen(driverID, date string) (bool, error)
+	DriverShiftClosed(driverID, date string) (bool, error)
 	List() ([]models.Waybill, error)
 }
 
