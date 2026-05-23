@@ -1,3 +1,5 @@
+//go:build windows
+
 package store
 
 import (
@@ -10,6 +12,11 @@ import (
 	"time"
 )
 
+const (
+	processQueryLimitedInformation = 0x1000
+	processStillActive             = 259
+)
+
 func acquireDirLock(dir string, maxWait time.Duration) (*os.File, error) {
 	lockPath := filepath.Join(dir, ".atp.lock")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -18,23 +25,19 @@ func acquireDirLock(dir string, maxWait time.Duration) (*os.File, error) {
 
 	deadline := time.Now().Add(maxWait)
 	for {
-		f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600)
-		if err != nil {
-			return nil, err
-		}
-		if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err == nil {
-			_, _ = f.Seek(0, 0)
-			_ = f.Truncate(0)
+		f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0o600)
+		if err == nil {
 			_, _ = fmt.Fprintf(f, "%d\n", os.Getpid())
 			return f, nil
 		}
-		_ = f.Close()
 
+		if !os.IsExist(err) {
+			return nil, err
+		}
 		if pid, ok := readLockPID(dir); ok && !isProcessAlive(pid) {
 			_ = os.Remove(lockPath)
 			continue
 		}
-
 		if time.Now().After(deadline) {
 			return nil, fmt.Errorf("каталог данных занят другим процессом — закройте другой экземпляр (wails dev / веб-сервер)")
 		}
@@ -46,8 +49,9 @@ func releaseDirLock(f *os.File) {
 	if f == nil {
 		return
 	}
-	_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+	lockPath := f.Name()
 	_ = f.Close()
+	_ = os.Remove(lockPath)
 }
 
 func readLockPID(dir string) (int, bool) {
@@ -66,20 +70,19 @@ func isProcessAlive(pid int) bool {
 	if pid <= 0 {
 		return false
 	}
-	return syscall.Kill(pid, 0) == nil
+	handle, err := syscall.OpenProcess(processQueryLimitedInformation, false, uint32(pid))
+	if err != nil {
+		return false
+	}
+	defer syscall.CloseHandle(handle)
+
+	var code uint32
+	if err := syscall.GetExitCodeProcess(handle, &code); err != nil {
+		return false
+	}
+	return code == processStillActive
 }
 
 func tryClearStaleLevelDBLock(dbPath string) {
-	lockPath := filepath.Join(dbPath, "LOCK")
-	f, err := os.OpenFile(lockPath, os.O_RDWR, 0o644)
-	if err != nil {
-		return
-	}
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err == nil {
-		_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
-		_ = f.Close()
-		_ = os.Remove(lockPath)
-		return
-	}
-	_ = f.Close()
+	_ = os.Remove(filepath.Join(dbPath, "LOCK"))
 }
