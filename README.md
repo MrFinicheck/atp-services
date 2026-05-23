@@ -73,3 +73,27 @@ atp-services/
 ├── app.go             # Wails bindings
 └── main.go
 ```
+
+## Документация, Docker и тесты
+
+Полный комплект в отдельной папке **`../atp-services-documentation/`**:
+
+| Материал | Путь |
+|----------|------|
+| Руководство пользователя (все роли) | `atp-services-documentation/readme.md` |
+| Документация разработчика | `atp-services-documentation/developer/` |
+| Презентация для защиты | `atp-services-documentation/presentation/` |
+| Docker | `atp-services-documentation/docker/` |
+| Примеры API | `atp-services-documentation/examples/` |
+
+**Unit-тесты:**
+
+```bash
+go test ./...
+```
+
+**Docker (web):**
+
+```bash
+cd ../atp-services-documentation/docker && docker compose up --build
+```
