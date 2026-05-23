@@ -305,6 +305,54 @@ export namespace models {
 		    return a;
 		}
 	}
+	export class OpenShiftRequest {
+	    vehicleId: string;
+	    startOdometer: number;
+	    fuelStart: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new OpenShiftRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.vehicleId = source["vehicleId"];
+	        this.startOdometer = source["startOdometer"];
+	        this.fuelStart = source["fuelStart"];
+	    }
+	}
+	export class OpenShiftResult {
+	    waybill: Waybill;
+	    message: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new OpenShiftResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.waybill = this.convertValues(source["waybill"], Waybill);
+	        this.message = source["message"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class Order {
 	    id: string;
 	    clientId: string;
@@ -368,6 +416,28 @@ export namespace models {
 		    }
 		    return a;
 		}
+	}
+	export class ShiftStatus {
+	    date: string;
+	    opened: boolean;
+	    closed: boolean;
+	    vehicleId?: string;
+	    startOdometer?: number;
+	    fuelStart?: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ShiftStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.date = source["date"];
+	        this.opened = source["opened"];
+	        this.closed = source["closed"];
+	        this.vehicleId = source["vehicleId"];
+	        this.startOdometer = source["startOdometer"];
+	        this.fuelStart = source["fuelStart"];
+	    }
 	}
 	export class Tariff {
 	    id: string;
