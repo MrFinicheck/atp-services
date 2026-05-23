@@ -1,0 +1,84 @@
+### TransitOS REST API — примеры (REST Client / VS Code)
+@baseUrl = http://localhost:8080
+@token = {{login.response.body.token}}
+
+### Health
+GET {{baseUrl}}/api/health
+
+### Login dispatcher
+# @name login
+POST {{baseUrl}}/api/login
+Content-Type: application/json
+
+{
+  "login": "dispatcher",
+  "password": "disp123"
+}
+
+### Me
+GET {{baseUrl}}/api/me
+Authorization: Bearer {{token}}
+
+### List clients
+GET {{baseUrl}}/api/clients
+Authorization: Bearer {{token}}
+
+### Create client
+POST {{baseUrl}}/api/clients
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "ООО Пример",
+  "phone": "+74950001122",
+  "debtLimit": 50000
+}
+
+### List vehicles
+GET {{baseUrl}}/api/vehicles
+Authorization: Bearer {{token}}
+
+### List tariffs
+GET {{baseUrl}}/api/tariffs
+Authorization: Bearer {{token}}
+
+### Preview price
+POST {{baseUrl}}/api/orders/preview-price
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "tariffId": "REPLACE_TARIFF_ID",
+  "distanceKm": 12,
+  "idleHours": 0.5,
+  "urgent": false
+}
+
+### List orders
+GET {{baseUrl}}/api/orders
+Authorization: Bearer {{token}}
+
+### Schedule today
+GET {{baseUrl}}/api/schedule
+Authorization: Bearer {{token}}
+
+### Dashboard
+GET {{baseUrl}}/api/dashboard
+Authorization: Bearer {{token}}
+
+### Login admin
+POST {{baseUrl}}/api/login
+Content-Type: application/json
+
+{
+  "login": "admin",
+  "password": "admin123"
+}
+
+### Driver rating (admin token required)
+GET {{baseUrl}}/api/reports/drivers
+Authorization: Bearer {{token}}
+
+### Audit (admin)
+GET {{baseUrl}}/api/audit
+Authorization: Bearer {{token}}

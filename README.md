@@ -58,11 +58,48 @@ rm -f data/.atp.lock data/data/LOCK
 wails dev -tags=webkit2_41
 ```
 
+## Запуск (Docker)
+
+Веб-режим в контейнере: сборка frontend, Go API и LevelDB в volume `atp-data`.
+
+**Требования:** Docker 24+, Docker Compose v2.
+
+```bash
+# из корня репозитория
+docker compose -f docker/docker-compose.yml up --build -d
+```
+
+Откройте http://localhost:8080 (те же демо-логины).
+
+Полезные команды:
+
+```bash
+# логи
+docker compose -f docker/docker-compose.yml logs -f atp-web
+
+# остановка
+docker compose -f docker/docker-compose.yml down
+
+# сброс данных (удалит демо-базу в volume)
+docker compose -f docker/docker-compose.yml down -v
+```
+
+Сборка образа без Compose:
+
+```bash
+docker build -f docker/Dockerfile -t atp-web:latest .
+docker run --rm -p 8080:8080 -v atp-data:/data atp-web:latest
+```
+
+Подробности: [docker/README.md](docker/README.md).
+
 ## Структура проекта
 
 ```
 atp-services/
 ├── cmd/web/           # HTTP-сервер для веб-режима
+├── docker/            # Dockerfile и docker-compose
+├── docs/              # руководства пользователя и разработчика
 ├── internal/
 │   ├── api/           # REST API
 │   ├── app/           # Бизнес-логика
@@ -74,26 +111,18 @@ atp-services/
 └── main.go
 ```
 
-## Документация, Docker и тесты
-
-Полный комплект в отдельной папке **`../atp-services-documentation/`**:
+## Документация и тесты
 
 | Материал | Путь |
 |----------|------|
-| Руководство пользователя (все роли) | `atp-services-documentation/readme.md` |
-| Документация разработчика | `atp-services-documentation/developer/` |
-| Презентация для защиты | `atp-services-documentation/presentation/` |
-| Docker | `atp-services-documentation/docker/` |
-| Примеры API | `atp-services-documentation/examples/` |
+| Оглавление документации | [docs/README.md](docs/README.md) |
+| Руководство пользователя (все роли) | [docs/user-guide-overview.md](docs/user-guide-overview.md) |
+| Роли (детально) | [docs/user-guide/](docs/user-guide/) |
+| Документация разработчика | [docs/developer/](docs/developer/) |
+| Примеры API | [docs/examples/](docs/examples/) |
 
 **Unit-тесты:**
 
 ```bash
 go test ./...
-```
-
-**Docker (web):**
-
-```bash
-cd ../atp-services-documentation/docker && docker compose up --build
 ```

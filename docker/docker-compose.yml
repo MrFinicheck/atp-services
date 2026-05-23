@@ -1,0 +1,16 @@
+services:
+  atp-web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - atp-data:/data
+    environment:
+      - ATP_DATA_DIR=/data
+      - TZ=Europe/Moscow
+    restart: unless-stopped
+
+volumes:
+  atp-data:

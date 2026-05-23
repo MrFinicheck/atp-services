@@ -1,0 +1,10 @@
+.git
+.gitignore
+data/
+build/
+*.md
+!frontend/**/*.md
+.cursor
+terminals/
+agent-transcripts/
+**/*_test.go
